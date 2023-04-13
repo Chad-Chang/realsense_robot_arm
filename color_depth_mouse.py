@@ -7,7 +7,7 @@ def mouse_callback(event, x, y, flags, param):
     # 마우스 왼쪽 버튼 누를시 위치에 있는 픽셀값을 읽어와서 hsv1로 변환합니다.
     if event == cv2.EVENT_LBUTTONDOWN:
         color = resized_color_image[y, x]
-        depth = depth_colormap[y,x]
+        depth = depth_image[y,x]
         one_pixel_color = np.uint8([[color]])  # numpy array 로 변환  3차원 배열로 변환
         one_pixel_depth = np.uint8([[depth]])  # numpy array 로 변환  3차원 배열로 변환
         print(one_pixel_color, one_pixel_depth)
