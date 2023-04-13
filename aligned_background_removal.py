@@ -69,7 +69,7 @@ while True:
     color_image = np.asanyarray(color_frame.get_data())
 
     #remove background - Set pixels further than clipping distance to grey
-    grey_color = 255
+    grey_color = 153
     depth_image_3d = np.dstack((depth_image, depth_image, depth_image)) #depth image는 1채널, color image는 3채널
 
     bg_removed = np.where((depth_image_3d>clipping_distance)|(depth_image_3d <= 0), grey_color,color_image)
