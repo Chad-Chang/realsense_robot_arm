@@ -150,7 +150,7 @@ try:
                 box[np.where(box[:,1] >= resized_color_image.shape[0])] = resized_color_image.shape[0]-1
             elif np.where(box[:,1] <= 0):
                 box[np.where(box[:, 1] <= 0)] = 1
-
+            # 행의 인덱스가 또 벗어났음.
             if np.where(box[:,0] >= resized_color_image.shape[1]):
                 box[np.where(box[:,0] >= resized_color_image.shape[1])] = resized_color_image.shape[1]-1
             elif np.where(box[:,0] <= 0):

@@ -2,29 +2,25 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 
-def mouse_callback(event, x, y, flags, param):
-    global hsv1, flag1
-    # 마우스 왼쪽 버튼 누를시 위치에 있는 픽셀값을 읽어와서 hsv1로 변환합니다.
-    if event == cv2.EVENT_LBUTTONDOWN:
-        color = resized_color_image[y, x]
-        depth = depth_image[y,x]
-        one_pixel_color = np.uint8([[color]])  # numpy array 로 변환  3차원 배열로 변환
-        one_pixel_depth = np.uint8([[depth]])  # numpy array 로 변환  3차원 배열로 변환
-        print(one_pixel_color, one_pixel_depth)
-        flag1 = 1
+########################hsv threshold#############################
+lower_green = (42, 74, 66)
+upper_green = (62, 255, 255)
+####################################################################
+max_x = 0
+max_y = 0
+max_w = 0
+max_h = 0
 
-cv2.namedWindow('RealSense_color')
-cv2.setMouseCallback('RealSense_color', mouse_callback)
-cv2.namedWindow('RealSense_depth')
-cv2.setMouseCallback('RealSense_depth', mouse_callback)
-
-pipeline = rs.pipeline()
+pipeline = rs.pipeline() # pipeline클래스는 user interaction with the device가 잘 이루어지게 만들어짐.
+# 복잡성 device/computer vision module을 단순화함. -> user/application에 집중할 수 있음.
+# 하나의 블록 interface로 구성되어있음.
 config = rs.config()
 
 pipeline_wrapper = rs.pipeline_wrapper(pipeline) # pipeline을 랜더링하기위해 알맞은 형태로 변환
 pipeline_profile = config.resolve(pipeline_wrapper)
 device = pipeline_profile.get_device()
 device_product_line = str(device.get_info(rs.camera_info.product_line))
+
 found_rgb = False
 for s in device.sensors:
 # s => pipeline의 device정보 객체임.
@@ -35,7 +31,9 @@ for s in device.sensors:
 if not found_rgb:
     print("The demo requires Depth camera with Color sensor")
     exit(0)
+
 config.enable_stream(rs.stream.depth,640,480,rs.format.z16,30)
+# argument: streaming type, width, height, format, framerate
 
 if device_product_line == "L500": # 이게 뭔지
     config.enable_stream(rs.stream.color, 960,540,rs.format.bgr8,30)
@@ -44,7 +42,6 @@ else:
 
 pipeline.start(config)
 
-# cv2.namedWindow('img_color')
 try:
     while True:
         frames = pipeline.wait_for_frames()
@@ -58,21 +55,29 @@ try:
             continue
         depth_image = np.asanyarray(depth_frame.get_data()) # frame데이터를 행렬화 시켜줌.
         color_image = np.asanyarray(color_frame.get_data())
+        # depth_colormap = cv2.applColorMap(depth_image, cv2.COLORMAP_JET)
 
-        print(depth_image.shape)
+        # depth_frame은 거리 정보를 담고 있는데 get_data()를 하고 numpyarray로 변환하면 각 원소의 범위가 0~255가 아니게 됨. + 음수가 나올수 잇음.
+        # 그래서 scale 변환을 해줘야함.
+        # ㄱ
+        # test = cv2.convertScaleAbs(depth_image, alpha=0.03)
+        # cv2.imshow('asdef',test)
+        # print(np.where(test>0,255,0))
+
         depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03),cv2.COLORMAP_JET)
+
         depth_colormap_dim = depth_colormap.shape
         color_colormap_dim = color_image.shape
-        resized_color_image = cv2.resize(color_image,dsize = (depth_colormap_dim[1],depth_colormap_dim[0]),interpolation = cv2.INTER_AREA)
-        # if depth_colormap_dim != color_colormap_dim:
-        #     resized_color_image = cv2.resize(color_image,dsize = (depth_colormap_dim[1],depth_colormap_dim[0]),interpolation = cv2.INTER_AREA)
-        #     images = np.hstack((resized_color_image, depth_colormap))
-        # else:
-        #     images = np.hstack((color_image, depth_colormap))
 
-        # cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('RealSense_color', resized_color_image)
-        cv2.imshow('RealSense_depth', depth_colormap)
+        if depth_colormap_dim != color_colormap_dim:
+            resized_color_image = cv2.resize(color_image,dsize = (depth_colormap_dim[1],depth_colormap_dim[0]),interpolation = cv2.INTER_AREA)
+            images = np.hstack((resized_color_image, depth_colormap))
+        else:
+            images = np.hstack((color_image, depth_colormap))
+
+
+        cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
+        cv2.imshow('RealSense', images)
         key = cv2.waitKey(1)
         if key & 0xFF == ord('q') or key == 27:  # 나가기
             cv2.destroyAllWindows()  # 윈도우 제거
