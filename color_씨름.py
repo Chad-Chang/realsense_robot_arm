@@ -1,129 +1,207 @@
+# First import the library
 import pyrealsense2 as rs
+# Import Numpy for easy array manipulation
 import numpy as np
+# Import OpenCV for easy image rendering
 import cv2
+import numpy.linalg as LA
 
-pipeline = rs.pipeline() # pipeline클래스는 user interaction with the device가 잘 이루어지게 만들어짐.
-# 복잡성 device/computer vision module을 단순화함. -> user/application에 집중할 수 있음.
-# 하나의 블록 interface로 구성되어있음.
-config = rs.config()
-
-pipeline_wrapper = rs.pipeline_wrapper(pipeline) # pipeline을 랜더링하기위해 알맞은 형태로 변환
-pipeline_profile = config.resolve(pipeline_wrapper)
-device = pipeline_profile.get_device()
-device_product_line = str(device.get_info(rs.camera_info.product_line))
-
-lower_green = (50, 255, 60)
-upper_green = (70, 255, 255)
-lower_blue = (97, 100, 31)
-upper_blue = (117, 255, 255)
-
-centeRx_g = 0  # 도심값
-centeRy_g = 0
-centeRx_b = 0
-centeRy_b = 0
-ang = 85
+#########################hsv threshold#############################
+lower_green = (42, 52, 74)
+upper_green = (62, 255, 255)
 maxArea_g = 0
-
-contour_update_g = 0  # 2개의 컨투어중 큰거를 물체로 감지
-contour_update_r = 0  # 2개의 컨투어중 큰거를 물체로 감지
-contour_update_b = 0  # 2개의 컨투어중 큰거를 물체로 감지
-dir_g = "0"  # 카메리 어느쪽에 물체가 있는지 (카메라 상에서 물체의 위치만 => 서보모터 돌리는 가이드)
-vec_g = "0"  # 뉴클레오에 통신해주는 방향 (서보모터 각도를 기준으로 보내주는 값)
-isObject_g = "0"  # 물체 있는지 없는지 0 = false, 1 = true, 'L' : 왼쪽에서 사라졌다. , 'R' : 오른족에서 사라졌다.
-search = True
-start_game = False
-size_g = "0"  # 물체의 크기
-inc2 = 5  # 물체가 사라졌을때의 서보 증분값
 inc = 0
 count = 0
 isBlue = '0'
 area_b = 0
+max_x = 0
+max_y = 0
+max_w = 0
+max_h = 0
+maxArea_b = 0
+centerX_b = 0
+maxCx_b = 0
+maxCy_b = 0
+vx,vy,vz = 0,0,0
+vx_d,vy_d,vz_d = 0,0,0
+
+#############################################################
+# Create a pipeline
+pipeline = rs.pipeline()
+
+# Create a config and configure the pipeline to stream
+#  different resolutions of color and depth streams
+config = rs.config()
+
+# Get device product line for setting a supporting resolution
+pipeline_wrapper = rs.pipeline_wrapper(pipeline)
+pipeline_profile = config.resolve(pipeline_wrapper)
+device = pipeline_profile.get_device()
+device_product_line = str(device.get_info(rs.camera_info.product_line))
 
 found_rgb = False
 for s in device.sensors:
-# s => pipeline의 device정보 객체임.
     if s.get_info(rs.camera_info.name) == 'RGB Camera':
         found_rgb = True
         break
-
 if not found_rgb:
     print("The demo requires Depth camera with Color sensor")
     exit(0)
 
-config.enable_stream(rs.stream.depth,640,480,rs.format.z16,30)
-# argument: streaming type, width, height, format, framerate
+config.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
 
-if device_product_line == "L500": # 이게 뭔지
-    config.enable_stream(rs.stream.color, 960,540,rs.format.bgr8,30)
+if device_product_line == 'L500':
+    config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, 30)
 else:
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
 
-pipeline.start(config)
+# Start streaming
+profile = pipeline.start(config)
 
+# Getting the depth sensor's depth scale (see rs-align example for explanation)
+depth_sensor = profile.get_device().first_depth_sensor()
+depth_scale = depth_sensor.get_depth_scale()
+print("Depth Scale is: " , depth_scale)
+
+# We will be removing the background of objects more than
+#  clipping_distance_in_meters meters away
+clipping_distance_in_meters = 1 #1 meter
+clipping_distance = clipping_distance_in_meters / depth_scale
+
+# Create an align object
+# rs.align allows us to perform alignment of depth frames to others frames
+# The "align_to" is the stream type to which we plan to align depth frames.
+align_to = rs.stream.color
+align = rs.align(align_to)
+
+# Streaming loop
 try:
     while True:
+        point0 = np.array([0,0,0])
+        point3 = np.array([0, 0, 0])
+        point2 = np.array([0, 0, 0])
+        vx, vy, vz = 0, 0, 0
+        vd, vx_d, vy_d, vz_d = 0, 0, 0,0
+        maxArea_g = 0
+        # Get frameset of color and depth
         frames = pipeline.wait_for_frames()
-        # print("frame",frames)
-        depth_frame = frames.get_depth_frame()# depth frame 객체
-        color_frame = frames.get_color_frame()# color frame 객체
-        # print("depth frame_data : ",depth_frame.get_data())
-        # print("color frame_data : ",color_frame.get_data())
-        # depth_frame.get_data()했을때 depth_frame의 데이터 정보는 bufData에 있다.
-        if not depth_frame or not color_frame:
+        # frames.get_depth_frame() is a 640x360 depth image
+
+        # Align the depth frame to color frame
+        aligned_frames = align.process(frames)
+
+        # Get aligned frames
+        aligned_depth_frame = aligned_frames.get_depth_frame() # aligned_depth_frame is a 640x480 depth image
+        color_frame = aligned_frames.get_color_frame()
+
+        # Validate that both frames are valid
+        if not aligned_depth_frame or not color_frame:
             continue
-        depth_image = np.asanyarray(depth_frame.get_data()) # frame데이터를 행렬화 시켜줌.
+
+        depth_image = np.asanyarray(aligned_depth_frame.get_data())
         color_image = np.asanyarray(color_frame.get_data())
-        img_hsv = cv2.cvtColor(color_image, cv2.COLOR_BGR2HSV)
+        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03), cv2.COLORMAP_JET)
+        depth_colormap_dim = depth_colormap.shape
+        color_colormap_dim = color_image.shape
+        resized_color_image = cv2.resize(color_image, dsize=(depth_colormap_dim[1], depth_colormap_dim[0]),interpolation=cv2.INTER_AREA)
 
+        img_hsv = cv2.cvtColor(resized_color_image, cv2.COLOR_BGR2HSV)
         img_mask_green = cv2.inRange(img_hsv, lower_green, upper_green)
-        img_mask_blue = cv2.inRange(img_hsv, lower_blue, upper_blue)
-
-        # depth_colormap = cv2.applColorMap(depth_image, cv2.COLORMAP_JET)
-
-        # depth_frame은 거리 정보를 담고 있는데 get_data()를 하고 numpyarray로 변환하면 각 원소의 범위가 0~255가 아니게 됨. + 음수가 나올수 잇음.
-        # 그래서 scale 변환을 해줘야함.                                                  ㄱ
-        test = cv2.convertScaleAbs(depth_image, alpha=0.03)
-        test2 = np.where(test > 0, 150, 0)
-        # print(test2.shape)
-        cv2.imshow('asdef',test)
-        # print(np.where(test>0,255,0))
-        depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(depth_image, alpha=0.03),cv2.COLORMAP_JET)
         kernel = np.ones((5, 5), np.uint8)  # 모폴로지  노이즈 필터링
+        ###############################morphologyEx############################
         img_mask_green = cv2.morphologyEx(img_mask_green, cv2.MORPH_OPEN, kernel)
         img_mask_green = cv2.morphologyEx(img_mask_green, cv2.MORPH_CLOSE, kernel)
-        contours_g, _ = cv2.findContours(img_mask_green, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)  # 반환값 계층 정보
+
+        img_result = cv2.bitwise_and(resized_color_image, resized_color_image, mask=img_mask_green)
+        # img_result = img_result_r | img_result_b | img_result_g
+        ##############################컨투어 따기#####################################
+        contours_g, _ = cv2.findContours(img_mask_green, cv2.RETR_LIST, cv2.CHAIN_APPROX_TC89_L1)  # 반환값 계층 정보
 
         for i, _ in enumerate(contours_g):  # 배열이름만 range부분에 넣으면 인덱스 추출
             cnt = contours_g[i]
             x, y, w, h = cv2.boundingRect(cnt)
+            rect = cv2.minAreaRect(cnt)
+
             area = w * h
             cx = int(x + w / 2)  # x중심 위치
             cy = int(y + h / 2)  # y중심 위치
+            # print(area)
             if area > maxArea_g:  # 가장 큰 물체를 업데이트 해줌.
                 maxArea_g = area
                 maxCx_g = cx
                 maxCy_g = cy
-                Rx_g = x
-                Ry_g = y
-                Rw_g = w
-                Rh_g = h
-                cv2.circle(color_image, (maxCx_g, maxCy_g), 10, (0, 0, 255), 2)
-                print("g")
+        if maxArea_g > 80:  # 80 점만 보여도 서보가 돌아가도록 하는 것이 좋을듯 ** 수정 사항 (mbed에서 size_g 값이 0이면 dc모터가 그 방향으로 돌지 않도록 or 파이썬에서 해결)
+            #################isObject_g=true : ang = ######################
+            cv2.circle(resized_color_image, (maxCx_g, maxCy_g), 10, (0, 0, 255), 2)
+            box = cv2.boxPoints(rect)
+            box = np.int0(box)
+            # print(box.shape)
+            # print(box) # 네 점을 리스트 형태로 가지고 있음.
+            cv2.drawContours(resized_color_image,[box],-1,(0,0,255),1)
+            # print(box[0],box[1],box[2],box[3])
+            v3_0 = box[3] - box[0]
+            v3_2 = box[3] - box[2]
+            point3[:2] = box[3]
+            # x,y는 반대로
+            cv2.putText(resized_color_image,str(box[3]),(box[3]),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),1,cv2.LINE_AA)
+            # 이미지 : 행열 단위 => xy반대로, 박스는 x,y형태임
+            ############사이즈를 벗어나는 경우가 있음########################
+            if np.where(box[:,1] >= resized_color_image.shape[0]):
+                box[np.where(box[:,1] >= resized_color_image.shape[0])] = resized_color_image.shape[0]-1
+            elif np.where(box[:,1] <= 0):
+                box[np.where(box[:, 1] <= 0)] = 1
 
-        depth_colormap_dim = depth_colormap.shape
-        color_colormap_dim = color_image.shape
+            if np.where(box[:,0] >= resized_color_image.shape[1]):
+                box[np.where(box[:,0] >= resized_color_image.shape[1])] = resized_color_image.shape[1]-1
+            elif np.where(box[:,0] <= 0):
+                box[np.where(box[:, 0] <= 0)] = 1
 
-        if depth_colormap_dim != color_colormap_dim:
-            resized_color_image = cv2.resize(color_image,dsize = (depth_colormap_dim[1],depth_colormap_dim[0]),interpolation = cv2.INTER_AREA)
-            images = np.hstack((resized_color_image, depth_colormap))
-        else:
-            images = np.hstack((color_image, depth_colormap))
-        cv2.namedWindow('RealSense', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('RealSense', images)
+            point3[2] = depth_image[box[3,1],box[3,0]]
+            cv2.circle(resized_color_image, (point3[0], point3[1]), 10, (0, 0, 255), 2)
+            point0[:2] = box[0]
+            point0[2] = depth_image[box[0,1],box[0,0]]
+            cv2.circle(resized_color_image, (point0[0], point0[1]), 10, (0, 255, 0), 2)
+            point2[:2] = box[2]
+            point2[2] = depth_image[box[2,1],box[2,0]]
+            cv2.circle(resized_color_image, (point2[0], point2[1]), 10, (255, 0, 0), 2)
+            if LA.norm(v3_0) > LA.norm(v3_2):
+                vy = v3_0/LA.norm(v3_0)
+                vx = v3_2/LA.norm(v3_2)
+                vz = np.cross(vx, vy)
+                vz = vz/LA.norm(vz)
+                vx_d = (point3 - point2)/LA.norm(point3 - point2)
+                vy_d = (point3 - point0)/LA.norm(point3 - point0)
+                vz_d = np.cross(vx_d,vy_d) # 위 방향인지 아래방향인지 아직 모름.
+                print(vz_d)
+                cv2.arrowedLine(resized_color_image, (box[3,0], box[3,1]), (box[2,0], box[2,1]), (0,0,255), thickness=2)
+                cv2.arrowedLine(resized_color_image, (box[3, 0], box[3, 1]), (box[0, 0], box[0, 1]), (255, 0, 0),thickness=2)
+
+            elif LA.norm(v3_2) > LA.norm(v3_0):
+                vy = v3_2/LA.norm(v3_2)
+                vx = v3_0/LA.norm(v3_0)
+                vz = np.cross(vx, vy)
+                vz = vz / LA.norm(vz)
+
+                vy_d = (point3 - point2) / LA.norm(point3 - point2)
+                vx_d = (point3 - point0) / LA.norm(point3 - point0)
+                vz_d = np.cross(vx_d, vy_d)  # 위 방향인지 아래방향인지 아직 모름.
+                print(vz_d)
+                # print(vz)
+                cv2.arrowedLine(resized_color_image, (box[3, 0], box[3, 1]), (box[2, 0], box[2, 1]), (255, 0, 0),thickness=2)
+                cv2.arrowedLine(resized_color_image, (box[3, 0], box[3, 1]), (box[0, 0], box[0, 1]), (0, 0, 255),thickness=2)
+            else:
+                pass
+
+
+        # cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
+        cv2.imshow('resized_color_image', resized_color_image)
+        cv2.imshow('depth_colormap', depth_colormap)
+        cv2.imshow('img_result', img_result)
         key = cv2.waitKey(1)
-        if key & 0xFF == ord('q') or key == 27:  # 나가기
-            cv2.destroyAllWindows()  # 윈도우 제거
+        # Press esc or 'q' to close the image window
+        if key & 0xFF == ord('q') or key == 27:
+            cv2.destroyAllWindows()
             break
-
 finally:
     pipeline.stop()
+
