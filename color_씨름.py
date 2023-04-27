@@ -192,9 +192,14 @@ try:
                 vx = v3_2/LA.norm(v3_2)
                 vz = np.cross(vx, vy)
                 vz = vz/LA.norm(vz)
-                vx_d = (point3 - point2)/LA.norm(point3 - point2)
-                vy_d = (point3 - point0)/LA.norm(point3 - point0)
-                vz_d = np.cross(vx_d,vy_d) # 위 방향인지 아래방향인지 아직 모름.
+                if vz >= 0:
+                    vx_d = (point3 - point2)/LA.norm(point3 - point2)
+                    vy_d = (point3 - point0)/LA.norm(point3 - point0)
+                    vz_d = np.cross(vx_d,vy_d) # 위 방향인지 아래방향인지 아직 모름.
+                else:
+                    vx_d = -(point3 - point2) / LA.norm(point3 - point2)
+                    vy_d = -(point3 - point0) / LA.norm(point3 - point0)
+                    vz_d = -np.cross(vx_d, vy_d)  # 위 방향인지 아래방향인지 아직 모름.
                 # print("3d z vector",vz_d)
                 cv2.arrowedLine(resized_color_image, (box[3,0], box[3,1]), (box[2,0], box[2,1]), (0,0,255), thickness=2)
                 cv2.arrowedLine(resized_color_image, (box[3, 0], box[3, 1]), (box[0, 0], box[0, 1]), (255, 0, 0),thickness=2)
@@ -205,10 +210,17 @@ try:
                 vx = v3_0/LA.norm(v3_0)
                 vz = np.cross(vx, vy)
                 vz = vz / LA.norm(vz)
-
-                vy_d = (point3 - point2) / LA.norm(point3 - point2)
-                vx_d = (point3 - point0) / LA.norm(point3 - point0)
-                vz_d = np.cross(vx_d, vy_d)  # 위 방향인지 아래방향인지 아직 모름.
+                if vz >= 0:
+                    vx_d = (point3 - point2)/LA.norm(point3 - point2)
+                    vy_d = (point3 - point0)/LA.norm(point3 - point0)
+                    vz_d = np.cross(vx_d,vy_d) # 위 방향인지 아래방향인지 아직 모름.
+                else:
+                    vx_d = -(point3 - point2) / LA.norm(point3 - point2)
+                    vy_d = -(point3 - point0) / LA.norm(point3 - point0)
+                    vz_d = -np.cross(vx_d, vy_d)  # 위 방향인지 아래방향인지 아직 모름.
+                # vy_d = (point3 - point2) / LA.norm(point3 - point2)
+                # vx_d = (point3 - point0) / LA.norm(point3 - point0)
+                # vz_d = np.cross(vx_d, vy_d)  # 위 방향인지 아래방향인지 아직 모름.
                 # print("3d z vector",vz_d)
                 cv2.arrowedLine(resized_color_image, (box[3, 0], box[3, 1]), (box[2, 0], box[2, 1]), (255, 0, 0),thickness =2)
                 cv2.arrowedLine(resized_color_image, (box[3, 0], box[3, 1]), (box[0, 0], box[0, 1]), (0, 0, 255),thickness =2)
@@ -230,6 +242,7 @@ try:
                 ax.plot(vxx_d_1,vxy_d_1,vxz_d_1,color ="red")
                 ax.plot(vyx_d_1, vyy_d_1, vyz_d_1, color="blue")
                 ax.plot(vzx_d_1, vzy_d_1, vzz_d_1, color="green")
+
                 # ax.plot(vy_d[0], vy_d[1], vy_d[2])
                 # ax.plot(vz_d[0], vz_d[1],vz_d[2])
                 # ax.plot(vx_d, vx_d, vx_d)
