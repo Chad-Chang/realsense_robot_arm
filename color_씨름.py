@@ -10,6 +10,8 @@ from mpl_toolkits.mplot3d import Axes3D
 fig = plt.figure(figsize=(9, 9))
 
 ax = fig.add_subplot(111, projection='3d')
+
+
 ########################hsv threshold#############################
 lower_green = (42, 52, 74)
 upper_green = (62, 255, 255)
@@ -81,9 +83,10 @@ align = rs.align(align_to)
 # Streaming loop
 try:
     while True:
-        point0 = np.array([0,0,0])
-        point3 = np.array([0, 0, 0])
-        point2 = np.array([0, 0, 0])
+        point_LD = np.array([0,0,0])
+        point_LU = np.array([0, 0, 0])
+        point_RD = np.array([0, 0, 0])
+        point_RU = np.array([0, 0, 0])
         vx, vy, vz = 0, 0, 0
         vd, vx_d, vy_d, vz_d = 0, 0, 0,0
         maxArea_g = 0
@@ -144,122 +147,150 @@ try:
             cv2.drawContours(resized_color_image,[box],-1,(0,0,255),1)
             # print("box0=",box[0],"box1=",box[1],",box2=",box[2],"box3=",box[3])
 
-            v3_0 = box[3] - box[0]
-            v3_2 = box[3] - box[2]
-            point3[:2] = box[3]
+
+            # point3[:2] = box[3]
             # x,y는 반대로
-            # cv2.putText(resized_color_image,str(box[3]),(box[3]),cv2.FONT_HERSHEY_SIMPLEX,0.5,(0,0,0),1,cv2.LINE_AA)
-            cv2.putText(resized_color_image, "box3"+str(box[3]), (box[3]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1,
-                        cv2.LINE_AA)
-            cv2.putText(resized_color_image, "box0"+str(box[0]), (box[0]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1,
-                        cv2.LINE_AA)
-            cv2.putText(resized_color_image, "box2"+str(box[2]), (box[2]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1,
-                        cv2.LINE_AA)
-            # cv2.putText(resized_color_image, str(box[3]), (box[3]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0), 1,
-            #             cv2.LINE_AA)
-            # 이미지 : 행열 단위 => xy반대로, 박스는 x,y형태임
-            ############사이즈를 벗어나는 경우가 있음########################
-            # if np.where(box[:,0] >= resized_color_image.shape[0]):
-            #     box[np.where(box[:,0] >= resized_color_image.shape[0])][0] = resized_color_image.shape[0]-1
-            # elif np.where(box[:,0] <= 0):
-            #     box[np.where(box[:, 0] <= 0)][0] = 1
-            # # 행의 인덱스가 또 벗어났음.
-            # if np.where(box[:,1] >= resized_color_image.shape[1]):
-            #     box[np.where(box[:,1] >= resized_color_image.shape[1])][1] = resized_color_image.shape[1]-1
-            # elif np.where(box[:,1] <= 0):
-            #     box[np.where(box[:, 1] <= 0)][1] = 1
             np.putmask(box[:, 0], box[:, 0] >= resized_color_image.shape[1], resized_color_image.shape[1]-1)
             np.putmask(box[:, 1], box[:, 1] >= resized_color_image.shape[0], resized_color_image.shape[0] - 1)
 
-            # point3[2] = depth_image[box[3,1],box[3,0]]
-            point3[2] = depth_image[box[3, 1], box[3, 0]]
-            # cv2.circle(resized_color_image, (box[2,0], box[2,1]), 10, (0, 0, 255), 2)
-            cv2.circle(resized_color_image, (point3[0], point3[1]), 10, (0, 0, 255), 2)
-            point0[:2] = box[0]
-            # point0[2] = depth_image[box[0,1],box[0,0]]
-            point0[2] = depth_image[box[0,1],box[0,0]]
-            # cv2.circle(resized_color_image, (box[0,0], box[0,1]), 10, (0, 0, 255), 2)
-            cv2.circle(resized_color_image, (point0[0], point0[1]), 10, (0, 255, 0), 2)
-            point2[:2] = box[2]
-            # point2[2] = depth_image[box[2,1],box[2,0]]
-            point2[2] = depth_image[box[2, 1], box[2, 0]]
-            # cv2.circle(resized_color_image, (box[2,0], box[2,1]), 10, (0, 0, 255), 2)
-            cv2.circle(resized_color_image, (point2[0], point2[1]), 10, (255, 0, 0), 2)
-
-            # cv2.putText(resized_color_image, "box2" + str(box[2]), (box[2]), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 0),1,cv2.LINE_AA)
-            if LA.norm(v3_0) > LA.norm(v3_2):
-                vy = v3_0/LA.norm(v3_0)
-                vx = v3_2/LA.norm(v3_2)
+            v3_0 = box[0] - box[3]
+            v3_2 = box[2] - box[3]
+            if LA.norm(v3_0) >= LA.norm(v3_2):
+                Vx = v3_2
+                Vy = v3_0
+                vy = v3_0/LA.norm(Vy)
+                vx = v3_2/LA.norm(Vx)
                 vz = np.cross(vx, vy)
-                vz = vz/LA.norm(vz)
-                if vz >= 0:
-                    vx_d = (point3 - point2)/LA.norm(point3 - point2)
-                    vy_d = (point3 - point0)/LA.norm(point3 - point0)
-                    vz_d = np.cross(vx_d,vy_d) # 위 방향인지 아래방향인지 아직 모름.
-                else:
-                    vx_d = -(point3 - point2) / LA.norm(point3 - point2)
-                    vy_d = -(point3 - point0) / LA.norm(point3 - point0)
-                    vz_d = -np.cross(vx_d, vy_d)  # 위 방향인지 아래방향인지 아직 모름.
-                # print("3d z vector",vz_d)
-                cv2.arrowedLine(resized_color_image, (box[3,0], box[3,1]), (box[2,0], box[2,1]), (0,0,255), thickness=2)
-                cv2.arrowedLine(resized_color_image, (box[3, 0], box[3, 1]), (box[0, 0], box[0, 1]), (255, 0, 0),thickness=2)
-                ax.plot(vx_d, vy_d, vz_d)
+                vz = -vz/LA.norm(vz)
+                # print(vz)
+                point_LD[:2] = box[3]
+                point_LD[2] = depth_image[box[3, 1], box[3, 0]]
+                # cv2.circle(resized_color_image, (point_LD[0], point_LD[1]), 10, (0, 0, 255), 2)
+                point_LU[:2] = box[0]
+                point_LU[2] = depth_image[box[0, 1], box[0, 0]]
+                point_RD[:2] = box[2]
+                point_RD[2] = depth_image[box[2, 1], box[2, 0]]
+                point_RU[:2] = box[1]
+                point_RU[2] = depth_image[box[1, 1], box[1, 0]]
+
+
+
+
+                # print(point_LD)
+                # print(Vx/3)
+
+                # vx_d = (point_LD - point_RD)/LA.norm(point_LD - point_RD)
+                # vy_d = (point_LD - point_LU)/LA.norm(point_LD - point_LU)
+                # vz_d = np.cross(vx_d,vy_d)/LA.norm(np.cross(vx_d,vy_d)) # 위 방향인지 아래방향인지 아직 모름.
+
+                # ax.plot(vx_d, vy_d, vz_d)
 
             elif LA.norm(v3_2) > LA.norm(v3_0):
-                vy = v3_2/LA.norm(v3_2)
-                vx = v3_0/LA.norm(v3_0)
+                Vx = -v3_0
+                Vy = v3_2
+                vy = Vy/LA.norm(Vy)
+                vx = Vx/LA.norm(Vx) # v0를 reference 포인트로 만들기시
                 vz = np.cross(vx, vy)
-                vz = vz / LA.norm(vz)
-                if vz >= 0:
-                    vx_d = (point3 - point2)/LA.norm(point3 - point2)
-                    vy_d = (point3 - point0)/LA.norm(point3 - point0)
-                    vz_d = np.cross(vx_d,vy_d) # 위 방향인지 아래방향인지 아직 모름.
-                else:
-                    vx_d = -(point3 - point2) / LA.norm(point3 - point2)
-                    vy_d = -(point3 - point0) / LA.norm(point3 - point0)
-                    vz_d = -np.cross(vx_d, vy_d)  # 위 방향인지 아래방향인지 아직 모름.
-                # vy_d = (point3 - point2) / LA.norm(point3 - point2)
-                # vx_d = (point3 - point0) / LA.norm(point3 - point0)
-                # vz_d = np.cross(vx_d, vy_d)  # 위 방향인지 아래방향인지 아직 모름.
-                # print("3d z vector",vz_d)
-                cv2.arrowedLine(resized_color_image, (box[3, 0], box[3, 1]), (box[2, 0], box[2, 1]), (255, 0, 0),thickness =2)
-                cv2.arrowedLine(resized_color_image, (box[3, 0], box[3, 1]), (box[0, 0], box[0, 1]), (0, 0, 255),thickness =2)
+                vz = -vz / LA.norm(vz)
+                # print(vz)
+                point_LD[:2] = box[0]
+                # point_LD[2] = depth_image[box[0, 1], box[0, 0]]
 
-                # 3축 만들기(matplot)
-                vxx_d_1 = np.linspace(0,vx_d[0], 10)
-                vxy_d_1 = np.linspace(0,vx_d[1], 10)
-                vxz_d_1 = np.linspace(0,vx_d[2], 10)
-                vyx_d_1 = np.linspace(0, vy_d[0], 10)
-                vyy_d_1 = np.linspace(0, vy_d[1], 10)
-                vyz_d_1 = np.linspace(0, vy_d[2], 10)
-                vzx_d_1 = np.linspace(0, vz_d[0], 10)
-                vzy_d_1 = np.linspace(0, vz_d[1], 10)
-                vzz_d_1 = np.linspace(0, vz_d[2], 10)
-                # print("vx =",vx_d_1.shape,"vy =",vy_d_1.shape,"vz =",vz_d_1.shape)
-                # ax.plot([vx_d[0],vy_d[0],vz_d[0]],[vx_d[1],vy_d[1],vz_d[1]],[vx_d[2],vy_d[2],vz_d[2]])
-                # ax.plot([vx_d[0], 0, 0], [0, vx_d[1], 0], [0, 0, vx_d[2]])
-                # ax.plot(vx_d_1,vy_d_1,vz_d_1,color = "red")
-                ax.plot(vxx_d_1,vxy_d_1,vxz_d_1,color ="red")
-                ax.plot(vyx_d_1, vyy_d_1, vyz_d_1, color="blue")
-                ax.plot(vzx_d_1, vzy_d_1, vzz_d_1, color="green")
+                point_LU[:2] = box[1]
+                # point_LU[2] = depth_image[box[1, 1], box[1, 0]]
+                point_RD[:2] = box[3]
+                # point_RD[2] = depth_image[box[3, 1], box[3, 0]]
+                point_RU[:2] = box[2]
+                # point_RU[2] = depth_image[box[2, 1], box[2, 0]]
 
-                # ax.plot(vy_d[0], vy_d[1], vy_d[2])
-                # ax.plot(vz_d[0], vz_d[1],vz_d[2])
-                # ax.plot(vx_d, vx_d, vx_d)
 
-                # ax.plot(vy_d[0],vy_d[1],vy_d[2])
-                # ax.plot(vz_d[0],vz_d[1],vz_d[2])
-                plt.pause(0.0001)
+                # vx_d = (point_LD - point_RD) / LA.norm(point_LD - point_RD)
+                # vy_d = (point_LD - point_LU) / LA.norm(point_LD - point_LU)
+                # vz_d = np.cross(vx_d,vy_d)/LA.norm(np.cross(vx_d,vy_d)) # 위 방향인지 아래방향인지 아직 모름.
+
             else:
                 pass
+            Depth_point_LD, Depth_point_LU, Depth_point_RD, Depth_point_RU = np.array([0, 0, 0]), np.array(
+                [0, 0, 0]), np.array([0, 0, 0]), np.array([0, 0, 0])
+            Depth_point_LD[:2] = point_LD[:2] + Vx / 3 + Vy / 3
+            Depth_point_RD[:2] = Depth_point_LD[:2] + Vx / 3
+            Depth_point_LU[:2] = Depth_point_LD[:2] + Vy / 3
+            Depth_point_RU[:2] = Depth_point_LD[:2] + Vx / 3 + Vy / 3
 
+            Depth_point_LD[2] = depth_image[Depth_point_LD[1], Depth_point_LD[0]]
+            Depth_point_RD[2] = depth_image[Depth_point_RD[1], Depth_point_RD[0]]
+            Depth_point_LU[2] = depth_image[Depth_point_LU[1], Depth_point_LU[0]]
+            Depth_point_RU[2] = depth_image[Depth_point_RU[1], Depth_point_RU[0]]
+
+            vx_d = (Depth_point_LD - Depth_point_RD) / LA.norm(Depth_point_LD - Depth_point_RD)
+            vy_d = (Depth_point_LD - Depth_point_LU)/ LA.norm(Depth_point_LD - Depth_point_LU)
+            vz_d = np.cross(vx_d,vy_d)/LA.norm(np.cross(vx_d,vy_d)) # 위 방향인지 아래방향인지 아직 모름.
+
+            # depth가 안정적인 부분만 뽑기 위한 점을 시각화
+            # cv2.circle(resized_color_image, (Depth_point_LD[0], Depth_point_LD[1]), 10, (255, 255, 0), 2)
+            # cv2.circle(resized_color_image, (Depth_point_RD[0], Depth_point_RD[1]), 10, (0, 255, 0), 2)
+            # cv2.circle(resized_color_image, (Depth_point_LU[0], Depth_point_LU[1]), 10, (0, 255, 0), 2)
+            # cv2.circle(resized_color_image, (Depth_point_RU[0], Depth_point_RU[1]), 10, (0, 255, 0), 2)
+            cv2.circle(depth_colormap, (Depth_point_LD[0], Depth_point_LD[1]), 3, (255, 255, 0), 2)
+            cv2.circle(depth_colormap, (Depth_point_RD[0], Depth_point_RD[1]), 3, (0, 255, 0), 2)
+            cv2.circle(depth_colormap, (Depth_point_LU[0], Depth_point_LU[1]), 3, (0, 255, 0), 2)
+            cv2.circle(depth_colormap, (Depth_point_RU[0], Depth_point_RU[1]), 3, (0, 255, 0), 2)
+
+            # 바운딩 박스 꼭지점 시각화
+            cv2.circle(resized_color_image, (point_LD[0], point_LD[1]), 10, (0, 0, 255), 2)
+            cv2.circle(resized_color_image, (point_LU[0], point_LU[1]), 10, (0, 255, 0), 2)
+            cv2.circle(resized_color_image, (point_RD[0], point_RD[1]), 10, (255, 0, 0), 2)
+
+            # 벡터 시각화
+            cv2.arrowedLine(resized_color_image, (point_LD[0], point_LD[1]), (point_LD[0] + Vx[0], point_LD[1] + Vx[1]),
+                            (0, 0, 255),
+                            thickness=2)  # X축 표시
+            cv2.arrowedLine(resized_color_image, (point_LD[0], point_LD[1]),
+                            (point_LD[0] + Vy[0], point_LD[1] + Vy[1]),
+                            (255, 0, 0),
+                            thickness=2)  # Y축 표시
+            cv2.putText(resized_color_image, "LD_p" + str(point_LD[:2]), (point_LD[:2]), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                        (0, 0, 0), 1,
+                        cv2.LINE_AA)
+            cv2.putText(resized_color_image, "LU_p" + str(point_LU[:2]), (point_LU[:2]), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                        (0, 0, 0), 1,
+                        cv2.LINE_AA)
+            cv2.putText(resized_color_image, "RD_p" + str(point_RD[:2]), (point_RD[:2]), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                        (0, 0, 0), 1,
+                        cv2.LINE_AA)
+
+                # 3축 만들기(matplot)
+            vxx_d_1 = np.linspace(0,vx_d[0], 10)
+            vxy_d_1 = np.linspace(0,vx_d[1], 10)
+            vxz_d_1 = np.linspace(0,vx_d[2], 10)
+            vyx_d_1 = np.linspace(0, vy_d[0], 10)
+            vyy_d_1 = np.linspace(0, vy_d[1], 10)
+            vyz_d_1 = np.linspace(0, vy_d[2], 10)
+            vzx_d_1 = np.linspace(0, vz_d[0], 10)
+            vzy_d_1 = np.linspace(0, vz_d[1], 10)
+            vzz_d_1 = np.linspace(0, vz_d[2], 10)
+            # 축 라벨
+            ax.set_xlabel("x", size=14)
+            ax.set_ylabel("y", size=14)
+            ax.set_zlabel("z", size=14)
+
+            # 축 눈금 지정
+            ax.set_xticks([-10, -5, 0.0, 5, 10])
+            ax.set_yticks([-10, -5, 0.0, 5, 10])
+            ax.set_zticks([-10, -5, 0.0, 5, 10])
+
+            ax.plot(vxx_d_1, vxy_d_1, vxz_d_1, color = "red") # y축
+            ax.plot(vyx_d_1, vyy_d_1, vyz_d_1, color = "blue") # x축
+            ax.plot(vzx_d_1, vzy_d_1, vzz_d_1, color = "green") # z 축
+
+            plt.pause(0.0001)
 
         cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
         cv2.imshow('resized_color_image', resized_color_image)
         cv2.imshow('depth_colormap', depth_colormap)
         cv2.imshow('img_result', img_result)
         plt.cla()
-        # plt.show()
+
         key = cv2.waitKey(1)
         # Press esc or 'q' to close the image window
         if key & 0xFF == ord('q') or key == 27:
