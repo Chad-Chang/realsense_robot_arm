@@ -7,14 +7,16 @@ import cv2
 import numpy.linalg as LA
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
-fig = plt.figure(figsize=(9, 9))
+fig = plt.figure(figsize=(6, 4))
 
 ax = fig.add_subplot(111, projection='3d')
 
 
 ########################hsv threshold#############################
-lower_green = (42, 52, 74)
-upper_green = (62, 255, 255)
+# lower_green = (50, 40, 40)
+# upper_green = (70, 255, 255)
+lower_green = (95, 184, 78)
+upper_green = (116, 255, 255)
 maxArea_g = 0
 inc = 0
 count = 0
@@ -222,15 +224,14 @@ try:
             Depth_point_LU[2] = depth_image[Depth_point_LU[1], Depth_point_LU[0]]
             Depth_point_RU[2] = depth_image[Depth_point_RU[1], Depth_point_RU[0]]
 
-            vx_d = (Depth_point_LD - Depth_point_RD) / LA.norm(Depth_point_LD - Depth_point_RD)
-            vy_d = (Depth_point_LD - Depth_point_LU)/ LA.norm(Depth_point_LD - Depth_point_LU)
-            vz_d = np.cross(vx_d,vy_d)/LA.norm(np.cross(vx_d,vy_d)) # 위 방향인지 아래방향인지 아직 모름.
+            # vx_d = (Depth_point_LD - Depth_point_RD) / LA.norm(Depth_point_LD - Depth_point_RD)
+            vx_d = (Depth_point_RD-Depth_point_LD) / LA.norm(Depth_point_RD-Depth_point_LD)
+            # vy_d = (Depth_point_LD - Depth_point_LU)/ LA.norm(Depth_point_LD - Depth_point_LU)
+            vy_d = (Depth_point_LU-Depth_point_LD) / LA.norm(Depth_point_LU-Depth_point_LD)
+            # vz_d = -np.cross(vx_d,vy_d)/LA.norm(np.cross(vx_d,vy_d)) # 위 방향인지 아래방향인지 아직 모름.
+            vz_d = np.cross(vx_d, vy_d) / LA.norm(np.cross(vx_d, vy_d))  # 위 방향인지 아래방향인지 아직 모름.
 
             # depth가 안정적인 부분만 뽑기 위한 점을 시각화
-            # cv2.circle(resized_color_image, (Depth_point_LD[0], Depth_point_LD[1]), 10, (255, 255, 0), 2)
-            # cv2.circle(resized_color_image, (Depth_point_RD[0], Depth_point_RD[1]), 10, (0, 255, 0), 2)
-            # cv2.circle(resized_color_image, (Depth_point_LU[0], Depth_point_LU[1]), 10, (0, 255, 0), 2)
-            # cv2.circle(resized_color_image, (Depth_point_RU[0], Depth_point_RU[1]), 10, (0, 255, 0), 2)
             cv2.circle(depth_colormap, (Depth_point_LD[0], Depth_point_LD[1]), 3, (255, 255, 0), 2)
             cv2.circle(depth_colormap, (Depth_point_RD[0], Depth_point_RD[1]), 3, (0, 255, 0), 2)
             cv2.circle(depth_colormap, (Depth_point_LU[0], Depth_point_LU[1]), 3, (0, 255, 0), 2)
@@ -275,17 +276,15 @@ try:
             ax.set_zlabel("z", size=14)
 
             # 축 눈금 지정
-            ax.set_xticks([-10, -5, 0.0, 5, 10])
-            ax.set_yticks([-10, -5, 0.0, 5, 10])
-            ax.set_zticks([-10, -5, 0.0, 5, 10])
 
+            ax.view_init(elev = -90, azim = -90)
             ax.plot(vxx_d_1, vxy_d_1, vxz_d_1, color = "red") # y축
             ax.plot(vyx_d_1, vyy_d_1, vyz_d_1, color = "blue") # x축
             ax.plot(vzx_d_1, vzy_d_1, vzz_d_1, color = "green") # z 축
 
             plt.pause(0.0001)
 
-        cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
+        # cv2.namedWindow('Align Example', cv2.WINDOW_NORMAL)
         cv2.imshow('resized_color_image', resized_color_image)
         cv2.imshow('depth_colormap', depth_colormap)
         cv2.imshow('img_result', img_result)
@@ -298,4 +297,3 @@ try:
             break
 finally:
     pipeline.stop()
-
