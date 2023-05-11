@@ -1,1 +1,1 @@
-print("hello the world")
+print([range(1, 9)] + [0x80])

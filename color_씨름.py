@@ -23,7 +23,7 @@ cv2.setMouseCallback('resized_color_image', mouse_callback)
 
 server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 # server_socket.connect((TCP_IP, TCP_PORT))##
-server_socket.bind(('192.168.0.78', 2006))    # ip주소, 포트번호 지정
+server_socket.bind(('192.168.0.78', 2018))    # ip주소, 포트번호 지정
 server_socket.listen(0)                          # 클라이언트의 연결요청을 기다리는 상태
 # server_socket.timeout(1)
 
@@ -273,6 +273,10 @@ try:
             Zc = point_center[2]
             Xc = round(x_normalized * Zc, 3)
             Yc = round(y_normalized * Zc, 3)
+            Xc2 = round((point_center[0] - resized_color_image.shape[1]//2)*2*Zc/1225, 3)
+            Yc2 = round((point_center[1] - resized_color_image.shape[0]//2)*2*Zc/1225, 3)
+            # print(Xc, Xc2)
+            # print(Yc, Yc2)
 
             x_normalized_aline = (resized_color_image.shape[1]//2 - resized_color_image.shape[1] // 2) / focal_len_x
             y_normalized_aline = (point_center[1] - resized_color_image.shape[0] // 2) / focal_len_y
@@ -309,8 +313,15 @@ try:
             null_m = np.array([[0,0,0,1]])
             T = np.around(np.concatenate([rotation, position], axis=1),4)
             H = np.concatenate([T,null_m],axis=0)
+            ext_T = np.array([[-1, 0, 0, 265], [0, 0, -1, 115], [0, -1, 0, 135],[0, 0, 0, 1]])
+
+            # print(ext_T)
+            # print("camera=", H)
+            # print("ext =", ext_T)
+            # print("world=",ext_T*H)
+            # print("world_rotation =", ext_T[:3,:3]*H[:3,:3])
             # print(vx_d, LA.norm(vx_d))
-            print(H)
+            # print(H)
 # 동차 행렬 행별로 나눠주기
 #             H_row= 0
             H_row = str(H[0,0])+','+str(H[0,1])+','+str(H[0,2])+','+str(H[0,3])+'/'+ str(H[1,0])+','+str(H[1,1])+','+str(H[1,2])+','+str(H[1,3])+'/'+str(H[2,0])+','+str(H[2,1])+','+str(H[2,2])+','+str(H[2,3])+'/'+str(H[3,0])+','+str(H[3,1])+','+str(H[3,2])+','+str(H[3,3])+'/'

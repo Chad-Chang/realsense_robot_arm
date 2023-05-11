@@ -24,12 +24,15 @@ if not found_rgb:
     exit(0)
 
 config.enable_stream(rs.stream.depth,640,480,rs.format.z16,30)
+
 # argument: streaming type, width, height, format, framerate
 
 if device_product_line == "L500": # 이게 뭔지
-    config.enable_stream(rs.stream.color, 960,540,rs.format.bgr8,30)
+    # config.enable_stream(rs.stream.color, 960,540,rs.format.bgr8,30)
+    config.enable_stream(rs.stream.color, 960, 540, rs.format.bgr8, 30)
 else:
     config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+    # config.enable_stream(rs.stream.color, 1280, 800, rs.format.bgr8, 30)
 
 pipeline.start(config)
 
